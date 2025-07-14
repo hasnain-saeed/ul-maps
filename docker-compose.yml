@@ -1,0 +1,42 @@
+version: "3"
+networks:
+  ulmaps_net:
+
+services:
+  zookeeper:
+    image: zookeeper:3.8
+    ports:
+      - "2181:2181"
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    networks:
+      - ulmaps_net
+
+  kafka:
+    image: bitnami/kafka:3.3.2
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: DOCKER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_LISTENERS: DOCKER://0.0.0.0:9092,HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: DOCKER://kafka:9092,HOST://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+    networks:
+      - ulmaps_net
+    depends_on:
+      - zookeeper
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - ulmaps_net
+    depends_on:
+      - kafka
