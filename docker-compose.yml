@@ -27,6 +27,12 @@ services:
       - ulmaps_net
     depends_on:
       - zookeeper
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -40,3 +46,30 @@ services:
       - ulmaps_net
     depends_on:
       - kafka
+
+  gtfs-producer:
+    build: ./producer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - REALTIME_API_KEY=${REALTIME_API_KEY}
+      - FEED_URL=${FEED_URL}
+      - POLL_INTERVAL=5
+    networks:
+      - ulmaps_net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  fastapi-app:
+    build: ./app
+    ports:
+      - "8000:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    networks:
+      - ulmaps_net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped

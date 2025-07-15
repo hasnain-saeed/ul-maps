@@ -3,11 +3,10 @@ from datetime import datetime
 from airflow.sdk import DAG
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 
-# Import custom operators and SQL queries
-from operators.load_gtfs_table_operator import LoadAllGTFSTablesOperator
-from operators.gtfs_download_operator import GTFSDownloadOperator
-from operators.gtfs_quality_check_operator import GTFSQualityCheckOperator
-from helpers.sql_queries import SqlQueries
+from plugins.operators.load_gtfs_table_operator import LoadAllGTFSTablesOperator
+from plugins.operators.gtfs_download_operator import GTFSDownloadOperator
+from plugins.operators.gtfs_quality_check_operator import GTFSQualityCheckOperator
+from plugins.helpers.sql_queries import SqlQueries
 
 # Configuration
 GTFS_URL = "https://opendata.samtrafiken.se/gtfs/ul/ul.zip"
@@ -24,7 +23,6 @@ with DAG(
     description="Download, validate and load GTFS static data into PostgreSQL database"
 ) as dag:
 
-    # Phase 1: Download and Extract GTFS Data
     download_gtfs = GTFSDownloadOperator(
         task_id="download_gtfs_data",
         gtfs_url=GTFS_URL,
@@ -33,7 +31,6 @@ with DAG(
         api_key_var="STATIC_API_KEY"
     )
 
-    # Phase 2: Data Quality Check
     quality_check = GTFSQualityCheckOperator(
         task_id="quality_check_gtfs_data",
         extract_dir=EXTRACT_DIR,
@@ -47,14 +44,12 @@ with DAG(
         }
     )
 
-    # Phase 3: Create all tables
     create_all_tables = SQLExecuteQueryOperator(
         task_id="create_all_tables",
         conn_id="gtfs_postgres",
         sql=SqlQueries.create_all_tables
     )
 
-    # Phase 4: Load all GTFS data
     load_all_gtfs = LoadAllGTFSTablesOperator(
         task_id="load_all_gtfs_tables",
         extract_dir=f"{EXTRACT_DIR}/{{{{ ds }}}}",
@@ -63,12 +58,10 @@ with DAG(
         skip_missing_files=True
     )
 
-    # Phase 5: Create indexes for performance
     create_indexes = SQLExecuteQueryOperator(
         task_id="create_indexes",
         conn_id="gtfs_postgres",
         sql=SqlQueries.create_indexes
     )
 
-    # Dependencies
     download_gtfs >> quality_check >> create_all_tables >> load_all_gtfs >> create_indexes

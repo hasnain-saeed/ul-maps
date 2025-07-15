@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, Any, Set
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
@@ -53,9 +54,12 @@ class KafkaConsumerService:
     async def start(self):
         """Start the Kafka consumer"""
         try:
+            # Get Kafka bootstrap servers from environment or default to localhost
+            bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+
             self.consumer = AIOKafkaConsumer(
                 *self.topics,
-                bootstrap_servers='localhost:9093',
+                bootstrap_servers=bootstrap_servers,
                 group_id='transit_streaming_group',
                 auto_offset_reset='latest',
                 enable_auto_commit=True,
