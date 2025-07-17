@@ -6,7 +6,7 @@ from typing import Dict, Any, Set
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
-from models import VehiclePosition, TripUpdate
+from schemas import VehiclePosition, TripUpdate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

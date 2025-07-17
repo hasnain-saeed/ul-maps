@@ -25,7 +25,6 @@ class GTFSQualityCheckOperator(BaseOperator):
     OPTIONAL_FILES = {
         'calendar_dates.txt': ['service_id', 'date', 'exception_type'],
         'shapes.txt': ['shape_id', 'shape_pt_lat', 'shape_pt_lon', 'shape_pt_sequence'],
-        'transfers.txt': ['from_stop_id', 'to_stop_id', 'transfer_type'],
         'feed_info.txt': ['feed_publisher_name', 'feed_publisher_url', 'feed_lang'],
         'attributions.txt': ['organization_name'],
         'booking_rules.txt': ['booking_rule_id', 'booking_type']

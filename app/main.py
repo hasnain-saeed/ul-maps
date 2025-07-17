@@ -1,11 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncConnection
+from models import reflect_tables
+from database import engine, get_async_connection
 from contextlib import asynccontextmanager
 import asyncio
 import json
 from typing import AsyncGenerator
 import uvicorn
 import logging
+import schemas
+import crud
 
 from consumer import KafkaConsumerService
 
@@ -17,6 +22,12 @@ consumer_service: KafkaConsumerService = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Application startup: Reflecting database tables...")
+    await reflect_tables(engine)
+    logger.info("Table reflection complete.")
+
+    # Debug: Print available columns for trips table
+
     global consumer_service
     consumer_service = KafkaConsumerService()
     consumer_task = asyncio.create_task(consumer_service.start())
@@ -41,7 +52,7 @@ async def event_stream() -> AsyncGenerator[str, None]:
     """Generate SSE stream for individual client"""
     client_queue = asyncio.Queue(maxsize=100)
     consumer_service.add_client(client_queue)
-    
+
     try:
         while True:
             try:
@@ -49,25 +60,25 @@ async def event_stream() -> AsyncGenerator[str, None]:
                 message = await asyncio.wait_for(client_queue.get(), timeout=30.0)
                 yield f"data: {json.dumps(message)}\n\n"
                 client_queue.task_done()
-                
+
             except asyncio.TimeoutError:
                 # Send heartbeat every 30 seconds
                 heartbeat = {
-                    'type': 'heartbeat', 
+                    'type': 'heartbeat',
                     'timestamp': asyncio.get_event_loop().time() * 1000,
                     'clients_connected': len(consumer_service.clients)
                 }
                 yield f"data: {json.dumps(heartbeat)}\n\n"
-                
+
             except Exception as e:
                 error_msg = {
-                    'type': 'error', 
+                    'type': 'error',
                     'message': str(e),
                     'timestamp': asyncio.get_event_loop().time() * 1000
                 }
                 yield f"data: {json.dumps(error_msg)}\n\n"
                 break
-                
+
     except asyncio.CancelledError:
         logger.info("Client stream cancelled")
     except Exception as e:
@@ -103,6 +114,19 @@ async def stream_events():
         }
     )
 
+@app.get(
+    "/routes/{route_name}/shape",
+    response_model=list[schemas.RouteShape]
+)
+async def get_route_shape_endpoint(route_name: str, conn: AsyncConnection = Depends(get_async_connection)):
+    """
+    API endpoint to get the shapes for a given route.
+    This endpoint returns a JSON array of shape points.
+    """
+    validated_shapes = await crud.get_all_shapes_by_route_name(conn, route_name)
+
+    return validated_shapes
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -118,7 +142,7 @@ async def get_stats():
     """Get consumer statistics"""
     if not consumer_service:
         return {"error": "Consumer service not initialized"}
-        
+
     return {
         "consumer_running": consumer_service.running,
         "connected_clients": len(consumer_service.clients),

@@ -3,18 +3,17 @@ import json
 import logging
 import os
 import time
-from typing import Dict, Any, List
 import aiohttp
 from aiokafka import AIOKafkaProducer
-from aiokafka.errors import KafkaError
 from google.transit import gtfs_realtime_pb2
 
-# Configure logging
+log_level = os.getenv('LOG_LEVEL', 'INFO')
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+DEFAULT_INTERVAL = 60
 
 class GTFSRealtimeProducer:
     def __init__(self):
@@ -22,7 +21,8 @@ class GTFSRealtimeProducer:
         self.api_key = os.getenv('REALTIME_API_KEY', '')
         self.feed_url = os.getenv('FEED_URL', '')
         self.kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9093')
-        self.poll_interval = int(os.getenv('POLL_INTERVAL', '10'))  # seconds
+        self.tu_poll_interval = int(os.getenv('TRIP_UPDATES_POLL_INTERVAL', DEFAULT_INTERVAL))
+        self.vp_poll_interval = int(os.getenv('VEHICLE_POSITIONS_POLL_INTERVAL', DEFAULT_INTERVAL))
 
         # Kafka topics
         self.vehicle_positions_topic = 'gtfs_vehicle_positions'
@@ -45,7 +45,8 @@ class GTFSRealtimeProducer:
         logger.info(f"Vehicle Positions URL: {self.vehicle_positions_url}")
         logger.info(f"Trip Updates URL: {self.trip_updates_url}")
         logger.info(f"Kafka Servers: {self.kafka_servers}")
-        logger.info(f"Poll Interval: {self.poll_interval}s")
+        logger.info(f"Trip Updates Poll Interval: {self.tu_poll_interval}s")
+        logger.info(f"Vehicle Positions Poll Interval: {self.vp_poll_interval}s")
 
     async def start(self):
         """Start the producer service"""
@@ -89,35 +90,42 @@ class GTFSRealtimeProducer:
             await self.session.close()
             logger.info("HTTP session closed")
 
+    async def run_task_periodically(self, target_coro_func, interval_seconds: int):
+        """
+        Runs a target async function repeatedly at a given interval.
+        """
+        logger.info(f"Starting periodic task {target_coro_func.__name__} every {interval_seconds}s")
+        while True:
+            loop_start = time.monotonic()
+            try:
+                await target_coro_func()
+            except Exception as e:
+                logger.error(f"Error in task '{target_coro_func.__name__}': {e}", exc_info=True)
+                await asyncio.sleep(DEFAULT_INTERVAL)
+                continue
+
+            loop_duration = time.monotonic() - loop_start
+            sleep_time = max(0, interval_seconds - loop_duration)
+            if sleep_time > 0:
+                logger.debug(f"Task {target_coro_func.__name__} finished in {loop_duration:.2f}s, sleeping for {sleep_time:.2f}s")
+                await asyncio.sleep(sleep_time)
+            else:
+                logger.warning(f"Loop took {loop_duration:.2f}s, longer than interval {interval_seconds}s")
+
     async def _run_loop(self):
         """Main execution loop"""
         logger.info("Starting continuous data fetching loop")
-
-        while self.running:
-            loop_start = time.time()
-
-            try:
-                # Fetch both feeds concurrently
-                tasks = [
-                    self._fetch_and_produce_vehicle_positions(),
-                    self._fetch_and_produce_trip_updates()
-                ]
-
-                await asyncio.gather(*tasks, return_exceptions=True)
-
-                # Calculate sleep time to maintain consistent intervals
-                loop_duration = time.time() - loop_start
-                sleep_time = max(0, self.poll_interval - loop_duration)
-
-                if sleep_time > 0:
-                    logger.debug(f"Loop took {loop_duration:.2f}s, sleeping {sleep_time:.2f}s")
-                    await asyncio.sleep(sleep_time)
-                else:
-                    logger.warning(f"Loop took {loop_duration:.2f}s, longer than interval {self.poll_interval}s")
-
-            except Exception as e:
-                logger.error(f"Error in main loop: {e}")
-                await asyncio.sleep(self.poll_interval)
+        tasks_to_run = [
+            self.run_task_periodically(
+                self._fetch_and_produce_vehicle_positions,
+                self.vp_poll_interval
+            ),
+            self.run_task_periodically(
+                self._fetch_and_produce_trip_updates,
+                self.tu_poll_interval
+            )
+        ]
+        await asyncio.gather(*tasks_to_run, return_exceptions=True)
 
     async def _fetch_gtfs_feed(self, url: str) -> gtfs_realtime_pb2.FeedMessage:
         """Fetch and decode GTFS-RT feed"""
@@ -245,7 +253,6 @@ class GTFSRealtimeProducer:
             logger.error(f"Error fetching trip updates: {e}")
 
 async def main():
-    """Main entry point"""
     producer = GTFSRealtimeProducer()
 
     try:

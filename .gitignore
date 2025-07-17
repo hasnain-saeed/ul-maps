@@ -2,3 +2,5 @@ logs/
 ul_env/
 .env
 data/
+**/__pycache__/
+.DS_Store

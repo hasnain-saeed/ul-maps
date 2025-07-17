@@ -53,7 +53,9 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - REALTIME_API_KEY=${REALTIME_API_KEY}
       - FEED_URL=${FEED_URL}
-      - POLL_INTERVAL=5
+      - TRIP_UPDATES_POLL_INTERVAL=60
+      - VEHICLE_POSITIONS_POLL_INTERVAL=20
+      - LOG_LEVEL=INFO
     networks:
       - ulmaps_net
     depends_on:
@@ -67,9 +69,12 @@ services:
       - "8000:8000"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=postgresql+asyncpg://airflow:airflow@postgres:5432/gtfs_static
     networks:
       - ulmaps_net
     depends_on:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - ./app:/app
