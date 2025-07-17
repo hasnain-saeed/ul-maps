@@ -3,10 +3,10 @@ from datetime import datetime
 from airflow.sdk import DAG
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 
-from plugins.operators.load_gtfs_table_operator import LoadAllGTFSTablesOperator
-from plugins.operators.gtfs_download_operator import GTFSDownloadOperator
-from plugins.operators.gtfs_quality_check_operator import GTFSQualityCheckOperator
-from plugins.helpers.sql_queries import SqlQueries
+from operators.load_gtfs_table_operator import LoadAllGTFSTablesOperator
+from operators.gtfs_download_operator import GTFSDownloadOperator
+from operators.gtfs_quality_check_operator import GTFSQualityCheckOperator
+from helpers.sql_queries import SqlQueries
 
 # Configuration
 GTFS_URL = "https://opendata.samtrafiken.se/gtfs/ul/ul.zip"

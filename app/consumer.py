@@ -7,6 +7,7 @@ from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
 from schemas import VehiclePosition, TripUpdate
+from cache import redis_pool
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ class KafkaConsumerService:
                 try:
                     processed_data = await self._process_message(message)
                     if processed_data:
+                        await self._cache_latest_data(processed_data)
                         await self.broadcast_message(processed_data)
 
                 except Exception as e:
@@ -94,6 +96,20 @@ class KafkaConsumerService:
 
         except KafkaError as e:
             logger.error(f"Kafka error: {e}")
+
+    async def _cache_latest_data(self, processed_data: Dict[str, Any]):
+        """Cache the latest vehicle positions and trip updates in Redis"""
+        try:
+            data_type = processed_data.get('type')
+            
+            if data_type == 'vehicle_positions':
+                await redis_pool.set("latest_vehicle_positions", json.dumps(processed_data))
+            
+            elif data_type == 'trip_updates':
+                await redis_pool.set("latest_trip_updates", json.dumps(processed_data))
+                
+        except Exception as e:
+            logger.error(f"Error caching data: {e}")
 
     async def _process_message(self, message) -> Dict[str, Any]:
         """Process Kafka message and return formatted data"""

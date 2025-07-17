@@ -1,9 +1,8 @@
-// src/components/Map.tsx
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl, { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl';
 import type { Feature, Point } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useTransitData, type VehiclePosition } from '../hooks/useTransitData';
+import { useVehicles, type VehiclePosition } from '../hooks/useVehicles';
 
 const UPPSALA_COORDINATES: [number, number] = [17.6389, 59.8586];
 const INITIAL_ZOOM = 10;
@@ -52,14 +51,12 @@ interface VehicleProperties {
   timestamp: number;
 }
 
-// --- Component ---
-
 const LiveMap = () => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
-
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   // Get live data from our custom hook
-  const { vehiclePositions, isConnected, error } = useTransitData();
+  const { vehiclePositions, isLoading, isError } = useVehicles();
 
   // Effect for initializing the map (runs only once)
   useEffect(() => {
@@ -105,9 +102,9 @@ const LiveMap = () => {
       map.current.on('click', 'vehicle-markers', (e) => {
         if (!e.features?.[0] || !map.current) return;
 
-        const feature = e.features[0] as Feature<Point, VehicleProperties>;
-        const coordinates = feature.geometry.coordinates.slice() as [number, number];
-        const { id, trip_id, speed, timestamp } = feature.properties;
+        const feature = e.features[0];
+        const coordinates = (feature.geometry as Point).coordinates.slice() as [number, number];
+        const { id, trip_id, speed, timestamp } = feature.properties as VehicleProperties;
 
         const speedKmh = (speed * 3.6).toFixed(1);
         const lastUpdate = new Date(timestamp * 1000).toLocaleTimeString();
@@ -125,6 +122,7 @@ const LiveMap = () => {
 
       map.current.on('mouseenter', 'vehicle-markers', () => map.current!.getCanvas().style.cursor = 'pointer');
       map.current.on('mouseleave', 'vehicle-markers', () => map.current!.getCanvas().style.cursor = '');
+      setIsMapLoaded(true);
     });
 
     return () => {
@@ -134,8 +132,14 @@ const LiveMap = () => {
   }, []);
 
   useEffect(() => {
+    console.log("isMapLoaded in useEffect", isMapLoaded);
+    console.log("vehiclePositions in useEffect", vehiclePositions);
+    if (!isMapLoaded || !vehiclePositions || vehiclePositions.size === 0) {
+      return;
+    }
+
     const vehiclesSource = map.current?.getSource('vehicles') as GeoJSONSource | undefined;
-    if (!vehiclesSource || vehiclePositions.size === 0) return;
+    if (!vehiclesSource) return;
 
     const features: Feature<Point, VehicleProperties>[] = Array.from(vehiclePositions.values())
       .map((vehicle: VehiclePosition) => ({
@@ -157,18 +161,17 @@ const LiveMap = () => {
       type: 'FeatureCollection',
       features,
     });
-  }, [vehiclePositions]);
+  }, [vehiclePositions, isMapLoaded]);
 
   return (
     <div className="map-container">
       <div className="status-bar">
-        <span className={`status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-        </span>
+        {isLoading && <span className="status loading">🟡 Loading vehicles...</span>}
+        {isError && <span className="status disconnected">🔴 Error fetching data</span>}
+        {vehiclePositions && <span className="status connected">🟢 Connected</span>}
         <span className="vehicle-count">
-          Vehicles: {vehiclePositions.size}
+          Vehicles: {vehiclePositions?.size || 0}
         </span>
-        {error && <span className="error">Error: {error}</span>}
       </div>
       <div ref={mapContainer} className="map" />
     </div>

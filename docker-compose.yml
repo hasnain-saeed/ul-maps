@@ -70,6 +70,7 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - DATABASE_URL=postgresql+asyncpg://airflow:airflow@postgres:5432/gtfs_static
+      - REDIS_URL=redis://redis:6379/1
     networks:
       - ulmaps_net
     depends_on:
