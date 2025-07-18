@@ -6,7 +6,7 @@ from typing import Dict, Any, Set
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaError
 
-from schemas.realtime import VehiclePosition, TripUpdate
+from utils.transformers import transform_vehicle_positions_from_kafka, transform_trip_updates_from_kafka
 from core.cache import redis_pool
 from core.config import get_settings
 
@@ -100,7 +100,7 @@ class KafkaConsumerService:
         """Handle vehicle position updates"""
         try:
             # Transform Kafka data to flattened format
-            flattened_vehicles = VehiclePosition.from_kafka_to_broadcast_format(data)
+            flattened_vehicles = transform_vehicle_positions_from_kafka(data)
 
             # Store in Redis
             if redis_pool:
@@ -126,7 +126,7 @@ class KafkaConsumerService:
         """Handle trip update messages"""
         try:
             # Transform Kafka data to flattened format
-            flattened_updates = TripUpdate.from_kafka_to_broadcast_format(data)
+            flattened_updates = transform_trip_updates_from_kafka(data)
 
             # Store in Redis
             if redis_pool:
