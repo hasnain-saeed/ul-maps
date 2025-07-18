@@ -14,18 +14,18 @@ export interface VehiclePosition {
 
 
 const fetchInitialVehicles = async (): Promise<Map<string, VehiclePosition>> => {
-  const response = await fetch('http://localhost:8000/api/vehicle_positions');
+  const response = await fetch('http://localhost:8000/api/v1/vehicle_positions');
   if (!response.ok) {
     throw new Error('Network response was not ok');
   }
   const responseData = await response.json();
 
-  if (responseData && Array.isArray(responseData.data)) {
-    const vehicles: VehiclePosition[] = responseData.data;
-    return new Map(vehicles.map(v => [v.vehicle_id, v]));
-  } else {
-    throw new Error('Invalid data structure received from API');
+  if (!Array.isArray(responseData)) {
+    throw new Error('Expected array of vehicles from API');
   }
+
+  const vehicles: VehiclePosition[] = responseData;
+  return new Map(vehicles.map(v => [v.vehicle_id, v]));
 };
 
 
@@ -39,10 +39,8 @@ export const useVehicles = () => {
     refetchOnWindowFocus: false,
   });
 
-  console.log("vehiclePositions in useVehicles", vehiclePositions);
-
   useEffect(() => {
-    const eventSource = new EventSource('http://localhost:8000/api/stream');
+    const eventSource = new EventSource('http://localhost:8000/api/v1/stream');
 
     eventSource.onmessage = (event: MessageEvent<string>) => {
       try {

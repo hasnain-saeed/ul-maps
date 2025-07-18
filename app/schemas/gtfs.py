@@ -1,8 +1,4 @@
-from pydantic import BaseModel, ConfigDict
-
-# Base configuration for all schemas
-class BaseSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+from .base import BaseSchema
 
 class Agency(BaseSchema):
     agency_id: str
@@ -100,25 +96,3 @@ class StopTime(BaseSchema):
     timepoint: int | None
     pickup_booking_rule_id: str | None
     drop_off_booking_rule_id: str | None
-
-class VehiclePosition(BaseModel):
-    entity_id: str
-    vehicle_id: str
-    trip_id: str | None
-    latitude: float
-    longitude: float
-    bearing: float | None
-    speed: float | None
-    timestamp: int
-
-class TripUpdate(BaseModel):
-    entity_id: str
-    trip_id: str
-    vehicle_id: str
-    stop_sequence: int
-    stop_id: str
-    arrival_delay: int | None
-    arrival_time: int | None
-    departure_delay: int | None
-    departure_time: int | None
-    update_timestamp: int

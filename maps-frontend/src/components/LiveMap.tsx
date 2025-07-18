@@ -73,7 +73,6 @@ const LiveMap = () => {
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     map.current.on('load', () => {
-      console.log('🗺️ Map loaded');
       if (!map.current) return;
 
       const busIcon = createCircularTextIcon('B');
@@ -132,8 +131,6 @@ const LiveMap = () => {
   }, []);
 
   useEffect(() => {
-    console.log("isMapLoaded in useEffect", isMapLoaded);
-    console.log("vehiclePositions in useEffect", vehiclePositions);
     if (!isMapLoaded || !vehiclePositions || vehiclePositions.size === 0) {
       return;
     }

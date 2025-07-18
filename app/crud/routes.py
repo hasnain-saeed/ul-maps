@@ -1,10 +1,10 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncConnection
-from database import metadata
-import schemas
-import transformers
+from core.database import metadata
+from schemas.gtfs import RouteShape
+from utils.transformers import transform_points_to_routes
 
-async def get_all_shapes_by_route_name(conn: AsyncConnection, route_name: str) -> list[schemas.RouteShape]:
+async def get_all_shapes_by_route_name(conn: AsyncConnection, route_name: str) -> list[RouteShape]:
     routes = metadata.tables['routes']
     trips = metadata.tables['trips']
     shapes = metadata.tables['shapes']
@@ -25,4 +25,4 @@ async def get_all_shapes_by_route_name(conn: AsyncConnection, route_name: str) -
 
     result = await conn.execute(query)
     points = result.mappings().all()
-    return transformers.transform_points_to_routes(points)
+    return transform_points_to_routes(points)

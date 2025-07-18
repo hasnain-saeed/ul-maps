@@ -1,6 +1,5 @@
-from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncEngine
-from database import engine, metadata
+from core.database import metadata
 
 async def reflect_tables(engine: AsyncEngine):
     async with engine.connect() as conn:

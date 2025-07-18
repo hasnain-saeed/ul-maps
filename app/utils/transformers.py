@@ -1,10 +1,8 @@
-
 import itertools
 import operator
-import schemas
+from schemas.gtfs import RouteShape
 
-def transform_points_to_routes(points) -> list[schemas.RouteShape]:
-
+def transform_points_to_routes(points) -> list[RouteShape]:
     aggregated_list = []
 
     for shape_id, group_iterator in itertools.groupby(points, key=operator.attrgetter('shape_id')):
@@ -13,7 +11,7 @@ def transform_points_to_routes(points) -> list[schemas.RouteShape]:
 
         coords = [[p.shape_pt_lon, p.shape_pt_lat] for p in points_in_group]
         aggregated_list.append(
-            schemas.RouteShape(
+            RouteShape(
                 direction_id=first_point.direction_id,
                 shape_id=shape_id,
                 coordinates=coords
